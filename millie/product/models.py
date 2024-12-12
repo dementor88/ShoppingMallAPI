@@ -1,4 +1,5 @@
 from django.db import models
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 class Category(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -11,7 +12,7 @@ class Product(models.Model):
     description = models.TextField()
     price = models.IntegerField()   # assume only Korean Won
     category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='products')
-    discount_rate = models.FloatField()     #TODO: need to force lower than 1 bigger than 0
+    discount_rate = models.FloatField(validators=[MinValueValidator(0.0), MaxValueValidator(1.0)])
     coupon_applicable = models.BooleanField()
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
