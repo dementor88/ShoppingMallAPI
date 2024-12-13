@@ -3,6 +3,7 @@ from django.core.cache import cache
 from .models import Product, Category
 from .serializers import ProductSerializer
 from ..coupon.models import Coupon
+from ..coupon.serializers import CouponSerializer
 from ..errors import *
 from ..settings import CACHE_MAX_TIMEOUT, PAGE_SIZE
 import logging
@@ -21,8 +22,8 @@ class ProductService(object):
                 raise TypeError
             products = Product.objects.filter(category_id=category_id).prefetch_related('category')
 
-        if (order_by is not None and order_by != 'uploaded_at') or (asc is not None and asc > 0):
-            order_field = order_by or 'uploaded_at'
+        if (order_by is not None and order_by != 'created_at') or (asc is not None and asc > 0):
+            order_field = order_by or 'created_at'
             ascending = asc or 0
             if ascending == 0:
                 order_field = '-' + order_field
@@ -58,7 +59,7 @@ class ProductService(object):
 
             coupon = None
             if coupon_code and product.coupon_applicable:
-                coupon = Coupon.objects.filter(code=coupon_code).first()
+                coupon = product.coupons.filter(code=coupon_code, active=True).first()
                 if not coupon:
                     logger.error(f'Failed to find coupon object with coupon_code: {coupon_code}')
                     raise CouponDoesNotExist
@@ -72,3 +73,16 @@ class ProductService(object):
 
     def invalidate_product_cache(self, product_id):
         cache.delete(f'product_detail_{product_id}')
+
+    def get_available_coupons(self, product_id):
+        try:
+            product = Product.objects.prefetch_related('coupons').get(id=product_id)
+        except Product.DoesNotExist:
+            raise ProductDoesNotExist
+
+        if not product.coupon_applicable:
+            return []
+
+        available_coupons = product.coupons.filter(active=True)
+        coupons_data = CouponSerializer(available_coupons, many=True).data
+        return coupons_data

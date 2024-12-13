@@ -5,7 +5,7 @@ from ..errors import *
 from .service import ProductService
 from ..settings import PAGE_SIZE
 
-ORDER_FIELDS = ['name', 'category_id', 'coupon_applicable', 'uploaded_at']
+ORDER_FIELDS = ['name', 'category_id', 'coupon_applicable', 'created_at']
 
 @api_view(['GET'])
 def get_products(request):
@@ -16,18 +16,24 @@ def get_products(request):
         page (optional): page number for pagination
         page_size (optional): page size for pagination
         asc (optional): sort ascending (0 or 1)
-        order_by (optional): sort field (default sorting is by 'uploaded_at')
+        order_by (optional): sort field (default sorting is by 'created_at')
     :return: JSON response with list of products
     :example:
         GET /product/?category_id=2&page=1&page_size=5&asc=1&order_by=name
-        Response: [
-            {
-                'id': 1,
-                'name': 'Prod 1',
-                'description': 'Desc.....',
-                ...
-            }
-        ]
+        Response: {
+            'total_count': 11,
+            'total_pages': 3,
+            'current_page': 1,
+            'page_size': 5,
+            'products': [
+                {
+                    'id': 1,
+                    'name': 'Prod 1',
+                    'description': 'Desc.....',
+                    ...
+                }
+            ]
+        }
     '''
     category_id = request.query_params.get('category_id', None)
     try:
@@ -42,8 +48,8 @@ def get_products(request):
             return Response({'error': 'Invalid order_by query'}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
-        service = ProductService()
-        result = service.get_products(category_id=category_id, page=page, page_size=page_size, order_by=order_by, asc=asc)
+        product_service = ProductService()
+        result = product_service.get_products(category_id=category_id, page=page, page_size=page_size, order_by=order_by, asc=asc)
         return Response(result)
     except TypeError:
         return Response({'error': 'category_id is not integer'}, status=status.HTTP_400_BAD_REQUEST)
@@ -68,9 +74,9 @@ def get_product_detail(request, product_id):
     """
     coupon_code = request.query_params.get('coupon_code', None)
 
-    service = ProductService()
+    product_service = ProductService()
     try:
-        result = service.get_product_detail(product_id=product_id, coupon_code=coupon_code)
+        result = product_service.get_product_detail(product_id=product_id, coupon_code=coupon_code)
         return Response(result)
     except TypeError:
         return Response({'error': 'product_id is not integer'}, status=status.HTTP_400_BAD_REQUEST)
@@ -78,3 +84,27 @@ def get_product_detail(request, product_id):
         return Response({'error': ProductDoesNotExist.default_detail}, status=ProductDoesNotExist.status_code)
     except CouponDoesNotExist:
         return Response({'error': CouponDoesNotExist.default_detail}, status=CouponDoesNotExist.status_code)
+
+@api_view(['GET'])
+def get_available_coupons(request, product_id):
+    """
+    Retrieve available coupons for a specific product
+    :param:
+        product_id : product_id of product
+    :return: JSON response  with list of coupons
+    :example:
+        GET /product/2/coupons/
+        Response: [
+            {
+                'id': 1,
+                'name': 'c_1',
+                ...
+            }
+        ]
+    """
+    product_service = ProductService()
+    try:
+        result = product_service.get_available_coupons(product_id=product_id)
+        return Response(result)
+    except ProductDoesNotExist:
+        return Response({'error': ProductDoesNotExist.default_detail}, status=ProductDoesNotExist.status_code)

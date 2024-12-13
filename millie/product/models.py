@@ -1,5 +1,6 @@
 from django.db import models
 from django.db.models import CheckConstraint, Q
+from ..coupon.models import Coupon
 from ..errors import *
 import logging
 
@@ -19,13 +20,16 @@ class Product(models.Model):
     category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='products')   # category_obj.products.all() returns all related product objects
     discount_rate = models.FloatField()
     coupon_applicable = models.BooleanField(default=False)
-    uploaded_at = models.DateTimeField(auto_now_add=True)
+    # Many-to-Many Relationship with Coupon
+    coupons = models.ManyToManyField('coupon.Coupon', related_name="products", through="ProductCoupon", blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ['-uploaded_at']     # default ordering
+        ordering = ['-created_at']     # default ordering
         indexes = [
-            models.Index(fields=['uploaded_at', 'name']),  # for pure search by name
-            models.Index(fields=['uploaded_at', 'category', 'name']),  # for category filtering, including name search option
+            models.Index(fields=['created_at', 'name']),  # for pure search by name
+            models.Index(fields=['created_at', 'category', 'name']),  # for category filtering, including name search option
         ]
         constraints = [
             CheckConstraint(
@@ -45,4 +49,13 @@ class Product(models.Model):
         final_price = self.price * (1 - total_discount_rate)
         return int(final_price)
 
+class ProductCoupon(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    coupon = models.ForeignKey(Coupon, on_delete=models.CASCADE)
+
+    class Meta:
+        unique_together = ('product', 'coupon')
+
+    def __str__(self):
+        return f"{self.product.name} - {self.coupon.code}"
 

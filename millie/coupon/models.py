@@ -5,10 +5,10 @@ class Coupon(models.Model):
     code = models.CharField(max_length=255, unique=True)
     discount_rate = models.FloatField()
     active = models.BooleanField(default=True)
-    uploaded_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ['-uploaded_at']     # default ordering
+        ordering = ['-created_at']     # default ordering
         constraints = [
             CheckConstraint(
                 check=Q(discount_rate__gte=0.0) & Q(discount_rate__lte=1.0),

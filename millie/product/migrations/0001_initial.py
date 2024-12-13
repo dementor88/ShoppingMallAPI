@@ -28,12 +28,12 @@ class Migration(migrations.Migration):
                 ('price', models.IntegerField()),
                 ('discount_rate', models.FloatField()),
                 ('coupon_applicable', models.BooleanField()),
-                ('uploaded_at', models.DateTimeField(auto_now_add=True)),
+                ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('category', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='products', to='product.category')),
             ],
             options={
-                'ordering': ['-uploaded_at'],
-                'indexes': [models.Index(fields=['uploaded_at', 'name'], name='product_pro_uploade_22bc3d_idx'), models.Index(fields=['uploaded_at', 'category', 'name'], name='product_pro_uploade_7e3d69_idx')],
+                'ordering': ['-created_at'],
+                'indexes': [models.Index(fields=['created_at', 'name'], name='product_pro_uploade_22bc3d_idx'), models.Index(fields=['created_at', 'category', 'name'], name='product_pro_uploade_7e3d69_idx')],
             },
         ),
     ]

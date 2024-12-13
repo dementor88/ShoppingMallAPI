@@ -6,7 +6,7 @@ from django.core.cache import cache
 from rest_framework.test import APIClient
 from rest_framework import status
 from .coupon.models import Coupon
-from .product.models import Product, Category
+from .product.models import Product, Category, ProductCoupon
 
 
 class ShoppingAPITestCase(TestCase):
@@ -78,6 +78,13 @@ class ShoppingAPITestCase(TestCase):
         self.coupon_2 = Coupon.objects.create(code='DISCOUNT90', discount_rate=0.9, active=True)
         self.coupon_3 = Coupon.objects.create(code='DISCOUNT100', discount_rate=1, active=False)
 
+        # Set 5 product-coupon mapping
+        ProductCoupon.objects.create(product=self.product_1, coupon=self.coupon_1)
+        ProductCoupon.objects.create(product=self.product_1, coupon=self.coupon_2)
+        ProductCoupon.objects.create(product=self.product_1, coupon=self.coupon_3)
+        ProductCoupon.objects.create(product=self.product_2, coupon=self.coupon_1)
+        ProductCoupon.objects.create(product=self.product_2, coupon=self.coupon_2)
+
         self.client = APIClient()
 
     def test_product_discount_rate_policy(self):
@@ -106,7 +113,7 @@ class ShoppingAPITestCase(TestCase):
         self.assertIn('total_pages', return_data)
         self.assertIn('current_page', return_data)
 
-        fields_2_return = {'id', 'name', 'description', 'price', 'category', 'discount_rate', 'coupon_applicable', 'uploaded_at'}
+        fields_2_return = {'id', 'name', 'description', 'price', 'category', 'discount_rate', 'coupon_applicable', 'created_at'}
         self.assertEqual(set(return_data['products'][0].keys()), fields_2_return)
         # 'category' field returns {'id': ..., 'name': ...}
         self.assertIn('id', return_data['products'][0]['category'])
@@ -152,6 +159,26 @@ class ShoppingAPITestCase(TestCase):
         # all products filtered by category_1 are 2
         self.assertEqual(len(return_data['products']), 2)
 
+    def test_available_coupons(self):
+        # Test retrieving available coupons for a specific product
+        # 3 mappings but 2 is active
+        response = self.client.get(f'/product/{self.product_1.id}/coupons/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        return_data = response.json()
+        self.assertEqual(len(return_data), 2)
+
+        # 2 mappings but product is not coupon_applicable
+        response = self.client.get(f'/product/{self.product_2.id}/coupons/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        return_data = response.json()
+        self.assertEqual(len(return_data), 0)
+
+        # 0 mappings
+        response = self.client.get(f'/product/{self.product_3.id}/coupons/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        return_data = response.json()
+        self.assertEqual(len(return_data), 0)
+
     def test_get_product_detail(self):
         # Test retrieving product detail
         response = self.client.get(f'/product/{self.product_1.id}/')
@@ -179,7 +206,7 @@ class ShoppingAPITestCase(TestCase):
 
     def test_get_product_detail_with_invalid_coupon(self):
         # Test retrieving product detail with an invalid coupon
-        response = self.client.get(f'/product/{self.product_1.id}/?coupon_code=INVALID')
+        response = self.client.get(f'/product/{self.product_1.id}/?coupon_code={self.coupon_3.code}')
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_get_active_coupons(self):
@@ -187,7 +214,6 @@ class ShoppingAPITestCase(TestCase):
         response = self.client.get(f'/coupon/all/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         return_data = response.json()
-        print(return_data)
         self.assertEqual(len(return_data['coupons']), 2)
 
     def test_get_entire_coupons(self):
@@ -195,7 +221,6 @@ class ShoppingAPITestCase(TestCase):
         response = self.client.get(f'/coupon/all/?include_inactive=1')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         return_data = response.json()
-        print(return_data)
         self.assertEqual(len(return_data['coupons']), 3)
 
     def test_cache_invalidation(self):

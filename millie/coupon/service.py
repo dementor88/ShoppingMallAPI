@@ -12,9 +12,9 @@ class CouponService:
         else:
             coupons = Coupon.objects.filter(active=True)
 
-        if ((order_by is not None and order_by != 'uploaded_at') or
+        if ((order_by is not None and order_by != 'created_at') or
                 (asc is not None and asc > 0)):
-            order_field = order_by or 'uploaded_at'
+            order_field = order_by or 'created_at'
             ascending = asc or 0
             if ascending == 0:
                 order_field = '-' + order_field

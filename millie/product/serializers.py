@@ -1,6 +1,8 @@
 from rest_framework import serializers
 import pytz
 from .models import Category, Product
+from ..coupon.models import Coupon
+from ..coupon.serializers import CouponSerializer
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -14,7 +16,7 @@ class ProductSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Product
-        fields = ['id', 'category', 'name', 'price', 'description', 'discount_rate', 'coupon_applicable', 'uploaded_at']
+        fields = ['id', 'category', 'name', 'price', 'description', 'discount_rate', 'coupon_applicable', 'created_at']
 
     # get category info (including name)
     def get_category(self, obj):
@@ -32,8 +34,8 @@ class ProductSerializer(serializers.ModelSerializer):
         # change float to percent format (e.g. 10%)
         representation['discount_rate'] = f'{round(instance.discount_rate * 100, 2)}%'
         # change UTC to KST
-        kst_time = instance.uploaded_at.astimezone(pytz.timezone('Asia/Seoul'))
-        representation['uploaded_at'] = kst_time.strftime('%Y년 %m월 %d일 %H시 %M분 %S초')
+        kst_time = instance.created_at.astimezone(pytz.timezone('Asia/Seoul'))
+        representation['created_at'] = kst_time.strftime('%Y년 %m월 %d일 %H시 %M분 %S초')
         return representation
 
 
