@@ -1,8 +1,5 @@
 from rest_framework import serializers
 from .models import Category, Product
-from django.core.cache import cache
-
-from ..settings import CACHE_MAX_TIMEOUT
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -16,18 +13,14 @@ class ProductSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Product
-        fields = ['id', 'category', 'name', 'price', 'description', 'discount_rate', 'coupon_applicable']
+        fields = ['id', 'category', 'name', 'price', 'description', 'discount_rate', 'coupon_applicable', 'uploaded_at']
 
     # get category info (including name)
     def get_category(self, obj):
-        cache_key = f'category_{obj.category_id}'
-        category_data = cache.get(cache_key)
-        if not category_data:
-            try:
-                category_data = CategorySerializer(obj.category).data
-                cache.set(cache_key, category_data, CACHE_MAX_TIMEOUT)
-            except Category.DoesNotExist:
-                category_data = None
+        try:
+            category_data = CategorySerializer(obj.category).data
+        except Category.DoesNotExist:
+            category_data = None
         return category_data
 
     # covert model data to JSON

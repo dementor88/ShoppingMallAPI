@@ -1,32 +1,48 @@
+from math import ceil
 from django.core.cache import cache
 from .models import Product, Category
 from .serializers import ProductSerializer
 from ..coupon.models import Coupon
 from ..errors import *
-from ..settings import CACHE_MAX_TIMEOUT, CACHE_MIN_TIMEOUT
+from ..settings import CACHE_MAX_TIMEOUT, PAGE_SIZE
 import logging
 
 logger = logging.getLogger(__name__)
 
 
 class ProductService(object):
-    def get_products(self, category_id=None):
-        cache_key = f'products_{category_id}' if category_id else 'products_all'
-        products_data = cache.get(cache_key)
+    def get_products(self,category_id=None, page=1, page_size=PAGE_SIZE,  order_by=None, asc=0):
+        products = Product.objects.all().prefetch_related('category') # lazy-query
+        if category_id:
+            try:
+                category_id = int(category_id)
+            except ValueError:
+                logger.error(f'Failed to get products by category_id: {category_id}')
+                raise TypeError
+            products = Product.objects.filter(category_id=category_id).prefetch_related('category')
 
-        if not products_data:
-            if category_id:
-                try:
-                    category_id = int(category_id)
-                except ValueError:
-                    logger.error(f'Failed to get products by category_id: {category_id}')
-                    raise TypeError
-                products = Product.objects.filter(category_id=category_id).select_related('category')
-            else:
-                products = Product.objects.all().select_related('category')
-            serializer = ProductSerializer(products, many=True)
-            products_data = serializer.data
-            cache.set(cache_key, products_data, timeout=CACHE_MIN_TIMEOUT)
+        if (order_by is not None and order_by != 'uploaded_at') or (asc is not None and asc > 0):
+            order_field = order_by or 'uploaded_at'
+            ascending = asc or 0
+            if ascending == 0:
+                order_field = '-' + order_field
+            products = products.order_by(order_field)
+
+        # implement pagination
+        total_count = products.count()
+        start = (page - 1) * page_size
+        end = start + page_size
+        total_pages = ceil(total_count / page_size)
+        products = products[start:end]
+
+        serializer = ProductSerializer(products, many=True)
+        products_data = {
+            'total_count': total_count,
+            'total_pages': total_pages,
+            'current_page': page,
+            'page_size': page_size,
+            'products': serializer.data
+        }
 
         return products_data
 
@@ -35,7 +51,7 @@ class ProductService(object):
         product_detail = cache.get(cache_key)
         if not product_detail:
             try:
-                product = Product.objects.select_related('category').get(id=product_id)
+                product = Product.objects.prefetch_related('category').get(id=product_id)
             except Product.DoesNotExist:
                 logger.error(f'Failed to get product object with product_id: {product_id}')
                 raise ProductDoesNotExist
@@ -54,15 +70,5 @@ class ProductService(object):
 
         return product_detail
 
-    def invalidate_category_cache(self, category_id):
-        cache.delete(f'category_{category_id}')
-        cache.delete('products_all')
-        cache.delete(f'products_{category_id}')
-
-    def invalidate_product_cache(self, product_id, category_id, prev_category_id=None):
+    def invalidate_product_cache(self, product_id):
         cache.delete(f'product_detail_{product_id}')
-        cache.delete('products_all')
-        cache.delete(f'products_{category_id}')
-        # need to limit updating category field by update_category()
-        if prev_category_id:
-            cache.delete(f'products_{prev_category_id}')

@@ -26,7 +26,6 @@ class Product(models.Model):
         indexes = [
             models.Index(fields=['uploaded_at', 'name']),  # for pure search by name
             models.Index(fields=['uploaded_at', 'category', 'name']),  # for category filtering, including name search option
-            models.Index(fields=['seller', 'uploaded_at', 'category']),  # filtering a seller's entire products
         ]
         constraints = [
             CheckConstraint(
@@ -45,21 +44,5 @@ class Product(models.Model):
             total_discount_rate = min(total_discount_rate, 1) # max discount_rate is 1
         final_price = self.price * (1 - total_discount_rate)
         return int(final_price)
-
-    def update_category(self, new_category_id):
-        try:
-            new_category = Category.objects.get(id=new_category_id)
-        except Category.DoesNotExist:
-            logger.error(f'Failed to find category object with category_id: {new_category_id}')
-            raise CategoryDoesNotExist
-
-        prev_category_id = self.category.id
-        self.category = new_category
-        self.save()
-        from .service import ProductService
-        product_service = ProductService()
-        product_service.invalidate_product_cache(self.id, new_category.id, prev_category_id)
-        product_service.invalidate_category_cache(prev_category_id)
-        product_service.invalidate_category_cache(new_category.id)
 
 

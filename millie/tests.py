@@ -1,3 +1,5 @@
+import time
+
 from django.db import IntegrityError
 from django.test import TestCase
 from django.core.cache import cache
@@ -23,6 +25,7 @@ class ShoppingAPITestCase(TestCase):
             discount_rate=0.1,
             coupon_applicable=True
         )
+        time.sleep(0.1)
         self.product_2 = Product.objects.create(
             name='Computer',
             description='Latest high speed computer',
@@ -31,6 +34,7 @@ class ShoppingAPITestCase(TestCase):
             discount_rate=0.05,
             coupon_applicable=False
         )
+        time.sleep(0.1)
         # Set 1 Book product
         self.product_3 = Product.objects.create(
             name='Bible',
@@ -40,11 +44,30 @@ class ShoppingAPITestCase(TestCase):
             discount_rate=0.3,
             coupon_applicable=True
         )
-        # Set 1 Misc product
+        time.sleep(0.1)
+        # Set 3 Misc product
         self.product_4 = Product.objects.create(
             name='25 cent',
-            description='A quarter coin of USA currency',
+            description='A quarter coin of USA currency (+ premium)',
             price=1000,
+            category=self.category_3,
+            discount_rate=0.5,
+            coupon_applicable=False
+        )
+        time.sleep(0.1)
+        self.product_5 = Product.objects.create(
+            name='Zebra',
+            description='Seller claims it is a real-life zebra',
+            price=10000000000,
+            category=self.category_3,
+            discount_rate=0.0,
+            coupon_applicable=False
+        )
+        time.sleep(0.1)
+        self.product_6 = Product.objects.create(
+            name='5 cent',
+            description='A nickle coin of USA currency (+ premium)',
+            price=500,
             category=self.category_3,
             discount_rate=0.5,
             coupon_applicable=False
@@ -77,43 +100,81 @@ class ShoppingAPITestCase(TestCase):
         # Test retrieving all products
         response = self.client.get('/product/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        return_data = response.json()
+        self.assertIn('total_count', return_data)
+        self.assertIn('total_pages', return_data)
+        self.assertIn('current_page', return_data)
 
-        fields_2_return = {'id', 'name', 'description', 'price', 'category', 'discount_rate', 'coupon_applicable'}
-        self.assertEqual(set(response.json()[0].keys()), fields_2_return)
+        fields_2_return = {'id', 'name', 'description', 'price', 'category', 'discount_rate', 'coupon_applicable', 'uploaded_at'}
+        self.assertEqual(set(return_data['products'][0].keys()), fields_2_return)
         # 'category' field returns {'id': ..., 'name': ...}
-        self.assertIn('id', response.json()[0]['category'])
-        self.assertIn('name', response.json()[0]['category'])
-        # all products are 4
-        self.assertEqual(len(response.json()), 4)
+        self.assertIn('id', return_data['products'][0]['category'])
+        self.assertIn('name', return_data['products'][0]['category'])
+        # all products are 6 but returns 5 by pagination
+        self.assertEqual(len(return_data['products']), 5)
+        self.assertEqual(return_data['total_pages'], 2)
+
+    def test_get_products_pagination(self):
+        # Test products pagination function
+        response = self.client.get('/product/?page=1&page_size=100')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        return_data = response.json()
+        self.assertEqual(return_data['total_pages'], 2)
+        self.assertEqual(len(return_data['products']), 5)
+        self.assertEqual(return_data['products'][0]['id'], self.product_6.id)
+
+        # search next page
+        response = self.client.get('/product/?page=2')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        return_data = response.json()
+        self.assertEqual(len(return_data['products']), 1)
+        self.assertEqual(return_data['total_pages'], 2)
+        self.assertEqual(return_data['products'][0]['id'], self.product_1.id)
+
+        # sort products by name asc
+        response = self.client.get('/product/?order_by=name&asc=1')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        return_data = response.json()
+        self.assertEqual(return_data['products'][0]['id'], self.product_4.id)
+
+        # sort products by name desc
+        response = self.client.get('/product/?order_by=name&asc=0')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        return_data = response.json()
+        self.assertEqual(return_data['products'][0]['id'], self.product_5.id)
 
     def test_get_products_by_category(self):
         # Test retrieving products filtered by category
         response = self.client.get(f'/product/?category_id={self.category_1.id}')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        return_data = response.json()
         # all products filtered by category_1 are 2
-        self.assertEqual(len(response.json()), 2)
+        self.assertEqual(len(return_data['products']), 2)
 
     def test_get_product_detail(self):
         # Test retrieving product detail
         response = self.client.get(f'/product/{self.product_1.id}/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn('final_price', response.json())
-        self.assertEqual(response.json()['final_price'], int(self.product_1.price * (1 - self.product_1.discount_rate)))
+        return_data = response.json()
+        self.assertIn('final_price', return_data)
+        self.assertEqual(return_data['final_price'], int(self.product_1.price * (1 - self.product_1.discount_rate)))
 
     def test_get_product_detail_with_coupon(self):
         # Test retrieving product detail with a valid coupon
         response = self.client.get(f'/product/{self.product_1.id}/?coupon_code={self.coupon_1.code}')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        return_data = response.json()
         expected_price = int(self.product_1.price * (1 - (self.product_1.discount_rate + self.coupon_1.discount_rate)))
-        self.assertEqual(response.json()['final_price'], expected_price)
+        self.assertEqual(return_data['final_price'], expected_price)
 
     def test_price_with_max_discount(self):
         # Test maximum discount applied to price
         response = self.client.get(f'/product/{self.product_4.id}/?coupon_code={self.coupon_2.code}')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        return_data = response.json()
         expected_price = int(self.product_1.price * (1 - (self.product_4.discount_rate + self.coupon_2.discount_rate)))
-        self.assertNotEqual(response.json()['final_price'], expected_price)
-        self.assertNotEqual(response.json()['final_price'], 0)
+        self.assertNotEqual(return_data['final_price'], expected_price)
+        self.assertNotEqual(return_data['final_price'], 0)
 
     def test_get_product_detail_with_invalid_coupon(self):
         # Test retrieving product detail with an invalid coupon
@@ -124,93 +185,21 @@ class ShoppingAPITestCase(TestCase):
         # Test retrieving available coupons for a product
         response = self.client.get(f'/coupon/available/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.json()), 2)
+        return_data = response.json()
+        self.assertEqual(len(return_data), 2)
 
     def test_cache_invalidation(self):
         # Test cache invalidation mechanism
         # cache empty
-        all_products_cache_key = f'products_all'
-        products_by_category_cache_key = f'products_{self.product_1.category_id}'
         product_detail_cache_key = f'product_detail_{self.product_1.id}'
-        assert cache.get(all_products_cache_key) is None
-        assert cache.get(products_by_category_cache_key) is None
         assert cache.get(product_detail_cache_key) is None
-
-        # all_products_cache_key filled
-        response = self.client.get('/product/')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        assert cache.get(all_products_cache_key) is not None
-
-        # products_by_category_cache_key
-        response = self.client.get(f'/product/?category_id={self.category_1.id}')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        assert cache.get(products_by_category_cache_key) is not None
 
         # product_detail_cache_key filled
         response =self.client.get(f'/product/{self.product_1.id}/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         assert cache.get(product_detail_cache_key) is not None
 
-        # cache invalidate after instance saved
+        # cache invalidate after instance update
         self.product_1.price = self.product_1.price + 1000
         self.product_1.save()
-        assert cache.get(all_products_cache_key) is None
-        assert cache.get(products_by_category_cache_key) is None
         assert cache.get(product_detail_cache_key) is None
-
-    def test_update_category(self):
-        # Test cache invalidation mechanism after updating category of product
-        # cache empty
-        category_cache_key = f'category_{self.category_1.id}'
-        new_category_cache_key = f'category_{self.category_2.id}'
-        all_products_cache_key = f'products_all'
-        products_by_category_cache_key = f'products_{self.product_1.category_id}'
-        products_by_new_category_cache_key = f'products_{self.product_1.category_id}'
-        product_detail_cache_key = f'product_detail_{self.product_1.id}'
-        assert cache.get(category_cache_key) is None
-        assert cache.get(new_category_cache_key) is None
-        assert cache.get(all_products_cache_key) is None
-        assert cache.get(products_by_category_cache_key) is None
-        assert cache.get(products_by_new_category_cache_key) is None
-        assert cache.get(product_detail_cache_key) is None
-
-        # all_products_cache_key filled
-        response = self.client.get('/product/')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        assert cache.get(all_products_cache_key) is not None
-
-        # products_by_category_cache_key
-        response = self.client.get(f'/product/?category_id={self.category_1.id}')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.json()), 2)
-        assert cache.get(products_by_category_cache_key) is not None
-        response = self.client.get(f'/product/?category_id={self.category_2.id}')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.json()), 1)
-        assert cache.get(products_by_new_category_cache_key) is not None
-
-        # product_detail_cache_key filled
-        response =self.client.get(f'/product/{self.product_1.id}/')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        assert cache.get(product_detail_cache_key) is not None
-
-        assert cache.get(category_cache_key) is not None
-        assert cache.get(new_category_cache_key) is not None
-
-        # change category_id of product_1
-        self.product_1.update_category(self.category_2.id)
-        # all related cache should be invalidated
-        assert cache.get(category_cache_key) is None
-        assert cache.get(new_category_cache_key) is None
-        assert cache.get(all_products_cache_key) is None
-        assert cache.get(products_by_category_cache_key) is None
-        assert cache.get(products_by_new_category_cache_key) is None
-        assert cache.get(product_detail_cache_key) is None
-
-        # product count by category is changed
-        response = self.client.get(f'/product/?category_id={self.category_1.id}')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.json()), 1)
-        response = self.client.get(f'/product/?category_id={self.category_2.id}')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.json()), 2)
