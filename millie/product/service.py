@@ -27,9 +27,8 @@ class ProductService(object):
         return products_data
 
     def get_product_detail(self, product_id, coupon_code=None):
-        cache_key = f"product_detail_{product_id}"
+        cache_key = f'product_detail_{product_id}'
         product_detail = cache.get(cache_key)
-
         if not product_detail:
             try:
                 product = Product.objects.select_related('category').get(id=product_id)
@@ -48,3 +47,16 @@ class ProductService(object):
             cache.set(cache_key, product_detail, timeout=CACHE_MAX_TIMEOUT)
 
         return product_detail
+
+    def invalidate_category_cache(self, category_id):
+        cache.delete(f'category_{category_id}')
+        cache.delete('products_all')
+        cache.delete(f'products_{category_id}')
+
+    def invalidate_product_cache(self, product_id, category_id, prev_category_id=None):
+        cache.delete(f'product_detail_{product_id}')
+        cache.delete('products_all')
+        cache.delete(f'products_{category_id}')
+        # need to limit updating category field by update_category()
+        if prev_category_id:
+            cache.delete(f'products_{prev_category_id}')

@@ -6,7 +6,7 @@ from ..settings import CACHE_MAX_TIMEOUT
 
 class CouponService:
     def get_available_coupons(self):
-        cache_key = f"available_coupons_all"
+        cache_key = f'available_coupons_all'
         coupons_data = cache.get(cache_key)
 
         if not coupons_data:

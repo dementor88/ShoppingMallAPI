@@ -58,6 +58,6 @@ def get_product_detail(request, product_id):
     except TypeError:
         return Response({'error': 'product_id is not integer'}, status=status.HTTP_400_BAD_REQUEST)
     except ProductDoesNotExist:
-        return Response({'error': 'product does not exist'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'error': ProductDoesNotExist.default_detail}, status=ProductDoesNotExist.status_code)
     except CouponDoesNotExist:
-        return Response({'error': 'coupon does not exist'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'error': CouponDoesNotExist.default_detail}, status=CouponDoesNotExist.status_code)
