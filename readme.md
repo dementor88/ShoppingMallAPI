@@ -38,6 +38,11 @@
       * (option) page, page_size
       * (option) order_by, asc: 정렬 기능 제공
 
+### Setup
+```
+pip install requirements.txt
+```
+
 ### Testing
 ```
 python manage.py test  millie.tests.ShoppingAPITestCase
