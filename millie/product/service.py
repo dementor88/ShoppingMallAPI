@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class ProductService(object):
-    def get_products(self,category_id=None, page=1, page_size=PAGE_SIZE,  order_by=None, asc=0):
+    def get_products(self,category_id=None, page=1, page_size=PAGE_SIZE, order_by=None, asc=0):
         products = Product.objects.all().prefetch_related('category') # lazy-query
         if category_id:
             try:

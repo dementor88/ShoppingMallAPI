@@ -18,7 +18,7 @@ class Product(models.Model):
     price = models.IntegerField()   # assume only Korean Won
     category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='products')   # category_obj.products.all() returns all related product objects
     discount_rate = models.FloatField()
-    coupon_applicable = models.BooleanField()
+    coupon_applicable = models.BooleanField(default=False)
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

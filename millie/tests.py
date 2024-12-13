@@ -73,9 +73,10 @@ class ShoppingAPITestCase(TestCase):
             coupon_applicable=False
         )
 
-        # Set 2 coupons
-        self.coupon_1 = Coupon.objects.create(code='DISCOUNT10', discount_rate=0.1)
-        self.coupon_2 = Coupon.objects.create(code='DISCOUNT90', discount_rate=0.9)
+        # Set 3 coupons
+        self.coupon_1 = Coupon.objects.create(code='DISCOUNT10', discount_rate=0.1, active=True)
+        self.coupon_2 = Coupon.objects.create(code='DISCOUNT90', discount_rate=0.9, active=True)
+        self.coupon_3 = Coupon.objects.create(code='DISCOUNT100', discount_rate=1, active=False)
 
         self.client = APIClient()
 
@@ -181,12 +182,21 @@ class ShoppingAPITestCase(TestCase):
         response = self.client.get(f'/product/{self.product_1.id}/?coupon_code=INVALID')
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
-    def test_get_available_coupons(self):
-        # Test retrieving available coupons for a product
-        response = self.client.get(f'/coupon/available/')
+    def test_get_active_coupons(self):
+        # Test retrieving active coupons for a product
+        response = self.client.get(f'/coupon/all/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         return_data = response.json()
-        self.assertEqual(len(return_data), 2)
+        print(return_data)
+        self.assertEqual(len(return_data['coupons']), 2)
+
+    def test_get_entire_coupons(self):
+        # Test retrieving entire (include inactive) coupons for a product
+        response = self.client.get(f'/coupon/all/?include_inactive=1')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        return_data = response.json()
+        print(return_data)
+        self.assertEqual(len(return_data['coupons']), 3)
 
     def test_cache_invalidation(self):
         # Test cache invalidation mechanism

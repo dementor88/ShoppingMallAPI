@@ -1,4 +1,5 @@
 from rest_framework import serializers
+import pytz
 from .models import Category, Product
 
 
@@ -27,7 +28,12 @@ class ProductSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         # apply commas to price (e.g. 500,000)
-        representation['price'] = f'{instance.price:,}'
+        representation['price'] = f'{instance.price:,}원'
+        # change float to percent format (e.g. 10%)
+        representation['discount_rate'] = f'{round(instance.discount_rate * 100, 2)}%'
+        # change UTC to KST
+        kst_time = instance.uploaded_at.astimezone(pytz.timezone('Asia/Seoul'))
+        representation['uploaded_at'] = kst_time.strftime('%Y년 %m월 %d일 %H시 %M분 %S초')
         return representation
 
 
@@ -35,6 +41,6 @@ class ProductSerializer(serializers.ModelSerializer):
         internal_value = super().to_internal_value(data)
         # remove commas from the price field
         if 'price' in data and type(data['price']) != int:
-            price_str = data['price'].replace(",", "")
+            price_str = data['price'].replace(',', '').replace('원', '')
             internal_value['price'] = int(price_str)
         return internal_value
