@@ -4,6 +4,9 @@ from .serializers import ProductSerializer
 from ..coupon.models import Coupon
 from ..errors import *
 from ..settings import CACHE_MAX_TIMEOUT, CACHE_MIN_TIMEOUT
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ProductService(object):
@@ -16,6 +19,7 @@ class ProductService(object):
                 try:
                     category_id = int(category_id)
                 except ValueError:
+                    logger.error(f'Failed to get products by category_id: {category_id}')
                     raise TypeError
                 products = Product.objects.filter(category_id=category_id).select_related('category')
             else:
@@ -33,12 +37,14 @@ class ProductService(object):
             try:
                 product = Product.objects.select_related('category').get(id=product_id)
             except Product.DoesNotExist:
+                logger.error(f'Failed to get product object with product_id: {product_id}')
                 raise ProductDoesNotExist
 
             coupon = None
             if coupon_code and product.coupon_applicable:
                 coupon = Coupon.objects.filter(code=coupon_code).first()
                 if not coupon:
+                    logger.error(f'Failed to find coupon object with coupon_code: {coupon_code}')
                     raise CouponDoesNotExist
 
             final_price = product.get_final_price(coupon)

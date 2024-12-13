@@ -107,6 +107,14 @@ class ShoppingAPITestCase(TestCase):
         expected_price = int(self.product_1.price * (1 - (self.product_1.discount_rate + self.coupon_1.discount_rate)))
         self.assertEqual(response.json()['final_price'], expected_price)
 
+    def test_price_with_max_discount(self):
+        # Test maximum discount applied to price
+        response = self.client.get(f'/product/{self.product_4.id}/?coupon_code={self.coupon_2.code}')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        expected_price = int(self.product_1.price * (1 - (self.product_4.discount_rate + self.coupon_2.discount_rate)))
+        self.assertNotEqual(response.json()['final_price'], expected_price)
+        self.assertNotEqual(response.json()['final_price'], 0)
+
     def test_get_product_detail_with_invalid_coupon(self):
         # Test retrieving product detail with an invalid coupon
         response = self.client.get(f'/product/{self.product_1.id}/?coupon_code=INVALID')
@@ -119,6 +127,7 @@ class ShoppingAPITestCase(TestCase):
         self.assertEqual(len(response.json()), 2)
 
     def test_cache_invalidation(self):
+        # Test cache invalidation mechanism
         # cache empty
         all_products_cache_key = f'products_all'
         products_by_category_cache_key = f'products_{self.product_1.category_id}'
@@ -150,6 +159,7 @@ class ShoppingAPITestCase(TestCase):
         assert cache.get(product_detail_cache_key) is None
 
     def test_update_category(self):
+        # Test cache invalidation mechanism after updating category of product
         # cache empty
         category_cache_key = f'category_{self.category_1.id}'
         new_category_cache_key = f'category_{self.category_2.id}'

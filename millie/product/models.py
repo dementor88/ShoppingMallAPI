@@ -1,6 +1,10 @@
 from django.db import models
 from django.db.models import CheckConstraint, Q
 from ..errors import *
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class Category(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -12,7 +16,7 @@ class Product(models.Model):
     name = models.CharField(max_length=255)
     description = models.TextField()
     price = models.IntegerField()   # assume only Korean Won
-    category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='products')
+    category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='products')   # category_obj.products.all() returns all related product objects
     discount_rate = models.FloatField()
     coupon_applicable = models.BooleanField()
     uploaded_at = models.DateTimeField(auto_now_add=True)
@@ -22,6 +26,7 @@ class Product(models.Model):
         indexes = [
             models.Index(fields=['uploaded_at', 'name']),  # for pure search by name
             models.Index(fields=['uploaded_at', 'category', 'name']),  # for category filtering, including name search option
+            models.Index(fields=['seller', 'uploaded_at', 'category']),  # filtering a seller's entire products
         ]
         constraints = [
             CheckConstraint(
@@ -45,6 +50,7 @@ class Product(models.Model):
         try:
             new_category = Category.objects.get(id=new_category_id)
         except Category.DoesNotExist:
+            logger.error(f'Failed to find category object with category_id: {new_category_id}')
             raise CategoryDoesNotExist
 
         prev_category_id = self.category.id
