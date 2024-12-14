@@ -13,14 +13,16 @@ logger = logging.getLogger(__name__)
 
 class ProductService(object):
     def get_products(self,category_id=None, page=1, page_size=PAGE_SIZE, order_by=None, asc=0):
-        products = Product.objects.all().prefetch_related('category') # lazy-query
+        # select_related() preferred for 1:1 or Many:1
+        products = Product.objects.all().select_related('category') # lazy-query
         if category_id:
             try:
                 category_id = int(category_id)
             except ValueError:
                 logger.error(f'Failed to get products by category_id: {category_id}')
                 raise TypeError
-            products = Product.objects.filter(category_id=category_id).prefetch_related('category')
+            # select_related() preferred for 1:1 or Many:1
+            products = Product.objects.filter(category_id=category_id).select_related('category')
 
         if (order_by is not None and order_by != 'created_at') or (asc is not None and asc > 0):
             order_field = order_by or 'created_at'
@@ -52,7 +54,8 @@ class ProductService(object):
         product_detail = cache.get(cache_key)
         if not product_detail:
             try:
-                product = Product.objects.prefetch_related('category').get(id=product_id)
+                # select_related() preferred for 1:1 or Many:1
+                product = Product.objects.select_related('category').get(id=product_id)
             except Product.DoesNotExist:
                 logger.error(f'Failed to get product object with product_id: {product_id}')
                 raise ProductDoesNotExist
@@ -76,6 +79,7 @@ class ProductService(object):
 
     def get_available_coupons(self, product_id):
         try:
+            # prefetch_related() preferred for Many:Many or 1:Many
             product = Product.objects.prefetch_related('coupons').get(id=product_id)
         except Product.DoesNotExist:
             raise ProductDoesNotExist
